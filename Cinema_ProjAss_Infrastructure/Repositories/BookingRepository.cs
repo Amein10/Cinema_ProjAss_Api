@@ -3,22 +3,30 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
 using Cinema_ProjAss_Domain.Entities;
 using Cinema_ProjAss_Domain.Interfaces;
 using Cinema_ProjAss_Infrastructure.Data;
+using Microsoft.EntityFrameworkCore;
 
 namespace Cinema_ProjAss_Infrastructure.Repositories
 {
+    /// <summary>
+    /// EF Core implementation af IBookingRepository.
+    /// Håndterer persistence for Booking samt eager loading af relaterede data.
+    /// </summary>
     public class BookingRepository : IBookingRepository
     {
         private readonly CinemaDbContext _context;
 
+        /// <summary>
+        /// Opretter repository med DbContext via dependency injection.
+        /// </summary>
         public BookingRepository(CinemaDbContext context)
         {
             _context = context;
         }
 
+        /// <inheritdoc />
         public async Task<Booking?> GetByIdAsync(int id)
         {
             return await _context.Bookings
@@ -32,6 +40,7 @@ namespace Cinema_ProjAss_Infrastructure.Repositories
                 .FirstOrDefaultAsync(b => b.Id == id);
         }
 
+        /// <inheritdoc />
         public async Task<IEnumerable<Booking>> GetBookingsForUserAsync(string userId)
         {
             return await _context.Bookings
@@ -45,13 +54,18 @@ namespace Cinema_ProjAss_Infrastructure.Repositories
                 .ToListAsync();
         }
 
+        /// <inheritdoc />
         public async Task<Booking> CreateAsync(Booking booking)
         {
-            // Sæt PriceAtBooking hvis den ikke er sat
+            // Bemærk:
+            // Hvis booking.Show ikke er loaded, kan du alternativt sætte PriceAtBooking i service-laget
+            // ved at slå Show.Price op via repository før CreateAsync kaldes.
+
             if (booking.BookingSeats != null && booking.BookingSeats.Count > 0)
             {
                 foreach (var bs in booking.BookingSeats)
                 {
+                    // Hvis PriceAtBooking ikke er sat, forsøger vi at låse show-prisen.
                     if (bs.PriceAtBooking <= 0)
                     {
                         bs.PriceAtBooking = booking.Show?.Price ?? bs.PriceAtBooking;
@@ -64,6 +78,7 @@ namespace Cinema_ProjAss_Infrastructure.Repositories
             return booking;
         }
 
+        /// <inheritdoc />
         public async Task UpdateStatusAsync(int bookingId, BookingStatus status)
         {
             var booking = await _context.Bookings.FindAsync(bookingId);

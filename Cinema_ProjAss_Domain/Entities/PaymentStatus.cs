@@ -6,6 +6,9 @@ using System.Threading.Tasks;
 
 namespace Cinema_ProjAss_Domain.Entities
 {
+    /// <summary>
+    /// Angiver status for en betaling.
+    /// </summary>
     public enum PaymentStatus
     {
         Pending = 0,
@@ -13,4 +16,5 @@ namespace Cinema_ProjAss_Domain.Entities
         Failed = 2,
         Refunded = 3
     }
+
 }
