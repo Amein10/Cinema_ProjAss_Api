@@ -12,9 +12,13 @@ namespace Cinema_ProjAss_Application.Services
         Task<BookingDto> GetByIdAsync(int id);
         Task<IEnumerable<BookingDto>> GetForUserAsync(string userId);
 
-        // userId kommer fra JWT (AppUser.Id)
-        Task<BookingDto> CreateAsync(int userId, CreateBookingDto dto);
+        Task<BookingDto> CreateAsync(CreateBookingDto dto);
 
+        // Ikke-basic
         Task UpdateStatusAsync(int bookingId, string status);
+
+        // CRUD
+        Task UpdateAsync(int bookingId, UpdateBookingDto dto);
+        Task DeleteAsync(int bookingId);
     }
 }

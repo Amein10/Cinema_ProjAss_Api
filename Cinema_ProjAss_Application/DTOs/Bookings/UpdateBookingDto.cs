@@ -6,10 +6,9 @@ using System.Threading.Tasks;
 
 namespace Cinema_ProjAss_Application.DTOs.Bookings
 {
-    public class CreateBookingDto
+    public class UpdateBookingDto
     {
-        public string UserId { get; set; } = string.Empty;
-        public int ShowId { get; set; }
+        // Vi opdaterer kun sæder (det giver mening i booking-flow)
         public List<int> SeatIds { get; set; } = new();
     }
 }

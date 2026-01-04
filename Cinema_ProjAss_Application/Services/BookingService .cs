@@ -10,9 +10,6 @@ using Cinema_ProjAss_Domain.Interfaces;
 
 namespace Cinema_ProjAss_Application.Services
 {
-    /// <summary>
-    /// Application service for booking-flow: opret booking, hent bookinger og opdater status.
-    /// </summary>
     public class BookingService : IBookingService
     {
         private readonly IBookingRepository _bookings;
@@ -40,20 +37,16 @@ namespace Cinema_ProjAss_Application.Services
             return list.Select(MapToDto);
         }
 
-        public async Task<BookingDto> CreateAsync(int userId, CreateBookingDto dto)
+        public async Task<BookingDto> CreateAsync(CreateBookingDto dto)
         {
-            Validate(dto);
+            ValidateCreate(dto);
 
-            if (userId <= 0)
-                throw new ValidationException("Invalid userId from token.");
-
-            // Valider show findes
             var show = await _shows.GetByIdAsync(dto.ShowId);
             if (show == null) throw new ValidationException($"ShowId={dto.ShowId} does not exist.");
 
             var booking = new Booking
             {
-                UserId = userId.ToString(),   // fordi Booking.UserId er string i Domain
+                UserId = dto.UserId.Trim(),
                 ShowId = dto.ShowId,
                 Status = BookingStatus.Pending,
                 CreatedAt = DateTime.UtcNow,
@@ -64,10 +57,9 @@ namespace Cinema_ProjAss_Application.Services
                         SeatId = seatId,
                         PriceAtBooking = show.Price
                     })
-                    .ToList()
+                    .ToList(),
+                Show = show
             };
-
-            booking.Show = show;
 
             var created = await _bookings.CreateAsync(booking);
 
@@ -77,7 +69,6 @@ namespace Cinema_ProjAss_Application.Services
             return MapToDto(loaded);
         }
 
-
         public async Task UpdateStatusAsync(int bookingId, string status)
         {
             if (bookingId <= 0) throw new ValidationException("bookingId must be > 0.");
@@ -86,17 +77,51 @@ namespace Cinema_ProjAss_Application.Services
             if (!Enum.TryParse<BookingStatus>(status, ignoreCase: true, out var parsed))
                 throw new ValidationException("Invalid status. Use Pending, Confirmed, or Cancelled.");
 
+            var existing = await _bookings.GetByIdAsync(bookingId);
+            if (existing == null) throw new NotFoundException($"Booking with id={bookingId} not found.");
+
             await _bookings.UpdateStatusAsync(bookingId, parsed);
         }
 
-        private static void Validate(CreateBookingDto dto)
+        // -------- NEW: PUT (Update seats) --------
+        public async Task UpdateAsync(int bookingId, UpdateBookingDto dto)
+        {
+            if (bookingId <= 0) throw new ValidationException("bookingId must be > 0.");
+            if (dto == null) throw new ValidationException("Body is required.");
+            if (dto.SeatIds == null || dto.SeatIds.Count == 0) throw new ValidationException("At least one SeatId is required.");
+            if (dto.SeatIds.Any(id => id <= 0)) throw new ValidationException("SeatIds must be > 0.");
+
+            var existing = await _bookings.GetByIdAsync(bookingId);
+            if (existing == null) throw new NotFoundException($"Booking with id={bookingId} not found.");
+
+            await _bookings.UpdateSeatsAsync(bookingId, dto.SeatIds);
+
+            // Returnér opdateret version
+            var loaded = await _bookings.GetByIdAsync(bookingId);
+            if (loaded == null) throw new NotFoundException("Booking was updated but could not be loaded.");
+
+            // (Controller kan vælge NoContent, men du kan også returne DTO i controller)
+        }
+
+        // -------- NEW: DELETE --------
+        public async Task DeleteAsync(int bookingId)
+        {
+            if (bookingId <= 0) throw new ValidationException("bookingId must be > 0.");
+
+            var existing = await _bookings.GetByIdAsync(bookingId);
+            if (existing == null) throw new NotFoundException($"Booking with id={bookingId} not found.");
+
+            await _bookings.DeleteAsync(bookingId);
+        }
+
+        private static void ValidateCreate(CreateBookingDto dto)
         {
             if (dto == null) throw new ValidationException("Body is required.");
+            if (string.IsNullOrWhiteSpace(dto.UserId)) throw new ValidationException("UserId is required.");
             if (dto.ShowId <= 0) throw new ValidationException("ShowId must be > 0.");
             if (dto.SeatIds == null || dto.SeatIds.Count == 0) throw new ValidationException("At least one SeatId is required.");
             if (dto.SeatIds.Any(id => id <= 0)) throw new ValidationException("SeatIds must be > 0.");
         }
-
 
         private static BookingDto MapToDto(Booking b)
         {
