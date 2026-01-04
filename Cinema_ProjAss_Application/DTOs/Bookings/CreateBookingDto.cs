@@ -8,8 +8,11 @@ namespace Cinema_ProjAss_Application.DTOs.Bookings
 {
     public class CreateBookingDto
     {
-        public string UserId { get; set; } = string.Empty;
         public int ShowId { get; set; }
         public List<int> SeatIds { get; set; } = new();
+
+        // Server-only:
+        public string UserId { get; set; } = string.Empty;
     }
+
 }

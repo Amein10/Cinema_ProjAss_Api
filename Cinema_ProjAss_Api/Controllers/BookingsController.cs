@@ -1,13 +1,14 @@
 ﻿using Microsoft.AspNetCore.Http;
 using System.Security.Claims;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
 using Cinema_ProjAss_Application.DTOs.Bookings;
 using Cinema_ProjAss_Application.Exceptions;
 using Cinema_ProjAss_Application.Services;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 
 namespace Cinema_ProjAss_Api.Controllers
 {
+    [Authorize]
     [ApiController]
     [Route("api/[controller]")]
     public class BookingsController : ControllerBase
@@ -19,76 +20,78 @@ namespace Cinema_ProjAss_Api.Controllers
             _bookingService = bookingService;
         }
 
+        private string GetUserIdOrThrow()
+        {
+            var id = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrWhiteSpace(id))
+                throw new ValidationException("Missing user id claim.");
+            return id;
+        }
+
+        // GET: /api/bookings/{id}
         [HttpGet("{id:int}")]
+        [ProducesResponseType(typeof(BookingDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<ActionResult<BookingDto>> GetById(int id)
         {
-            try
-            {
-                var booking = await _bookingService.GetByIdAsync(id);
-                return Ok(booking);
-            }
-            catch (NotFoundException ex) { return NotFound(ex.Message); }
+            var booking = await _bookingService.GetByIdAsync(id);
+            return Ok(booking);
         }
 
-        [HttpGet("user/{userId}")]
-        public async Task<ActionResult<IEnumerable<BookingDto>>> GetForUser(string userId)
+        // GET: /api/bookings/me
+        [HttpGet("me")]
+        [ProducesResponseType(typeof(IEnumerable<BookingDto>), StatusCodes.Status200OK)]
+        public async Task<ActionResult<IEnumerable<BookingDto>>> GetForMe()
         {
-            try
-            {
-                var bookings = await _bookingService.GetForUserAsync(userId);
-                return Ok(bookings);
-            }
-            catch (ValidationException ex) { return BadRequest(ex.Message); }
+            var userId = GetUserIdOrThrow();
+            var bookings = await _bookingService.GetForUserAsync(userId);
+            return Ok(bookings);
         }
 
+        // POST: /api/bookings
         [HttpPost]
+        [ProducesResponseType(typeof(BookingDto), StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<ActionResult<BookingDto>> Create([FromBody] CreateBookingDto dto)
         {
-            try
-            {
-                var created = await _bookingService.CreateAsync(dto);
-                return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
-            }
-            catch (ValidationException ex) { return BadRequest(ex.Message); }
+            // Overstyr userId fra token (så klienten ikke kan spoofe)
+            dto.UserId = GetUserIdOrThrow();
+
+            var created = await _bookingService.CreateAsync(dto);
+            return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
         }
 
-        // Ikke-basic (business)
+        // PATCH: /api/bookings/{bookingId}/status?status=Confirmed
         [HttpPatch("{bookingId:int}/status")]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> UpdateStatus(int bookingId, [FromQuery] string status)
         {
-            try
-            {
-                await _bookingService.UpdateStatusAsync(bookingId, status);
-                return NoContent();
-            }
-            catch (NotFoundException ex) { return NotFound(ex.Message); }
-            catch (ValidationException ex) { return BadRequest(ex.Message); }
+            await _bookingService.UpdateStatusAsync(bookingId, status);
+            return NoContent();
         }
 
-        // -------- NEW: PUT (Update) --------
+        // PUT: /api/bookings/{bookingId}
         [HttpPut("{bookingId:int}")]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> Update(int bookingId, [FromBody] UpdateBookingDto dto)
         {
-            try
-            {
-                await _bookingService.UpdateAsync(bookingId, dto);
-                return NoContent(); // eller Ok(await _bookingService.GetByIdAsync(bookingId));
-            }
-            catch (NotFoundException ex) { return NotFound(ex.Message); }
-            catch (ValidationException ex) { return BadRequest(ex.Message); }
+            await _bookingService.UpdateAsync(bookingId, dto);
+            return NoContent();
         }
 
-        // -------- NEW: DELETE (Delete) --------
+        // DELETE: /api/bookings/{bookingId}
         [HttpDelete("{bookingId:int}")]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> Delete(int bookingId)
         {
-            try
-            {
-                await _bookingService.DeleteAsync(bookingId);
-                return NoContent();
-            }
-            catch (NotFoundException ex) { return NotFound(ex.Message); }
-            catch (ValidationException ex) { return BadRequest(ex.Message); }
+            await _bookingService.DeleteAsync(bookingId);
+            return NoContent();
         }
     }
 }
