@@ -17,6 +17,18 @@ namespace Cinema_ProjAss_Api.Controllers
             _showService = showService;
         }
 
+        // ✅ NY: GET /api/Shows  (alle shows)
+        // Bruges til Admin-liste
+        [HttpGet]
+        public async Task<ActionResult<IEnumerable<ShowDto>>> GetAll([FromQuery] DateTime? fromDate)
+        {
+            // Hvis du vil have ALLE shows uanset dato, så lav en rigtig GetAllAsync i service.
+            // MEN hurtig “skole-venlig” løsning: vi bruger upcoming fra en tidlig dato.
+            var date = fromDate ?? DateTime.MinValue;
+            var shows = await _showService.GetUpcomingShowsAsync(date);
+            return Ok(shows);
+        }
+
         [HttpGet("{id:int}")]
         public async Task<ActionResult<ShowDto>> GetById(int id)
         {
@@ -55,6 +67,7 @@ namespace Cinema_ProjAss_Api.Controllers
             catch (ValidationException ex) { return BadRequest(ex.Message); }
         }
 
+        // ✅ NOTE: hvis du ikke har UpdateShowDto, så behold CreateShowDto
         [HttpPut("{id:int}")]
         public async Task<IActionResult> Update(int id, [FromBody] CreateShowDto dto)
         {
