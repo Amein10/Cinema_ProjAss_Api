@@ -1,8 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
+using Cinema_ProjAss_Application.DTOs.Seats;
 using Cinema_ProjAss_Application.DTOs.Shows;
 using Cinema_ProjAss_Application.Exceptions;
 using Cinema_ProjAss_Domain.Entities;
@@ -15,10 +15,21 @@ namespace Cinema_ProjAss_Application.Services
         private readonly IShowRepository _shows;
         private readonly IMovieRepository _movies;
 
-        public ShowService(IShowRepository shows, IMovieRepository movies)
+        // ✅ NYE repositories til seat-select
+        private readonly ISeatRepository _seats;
+        private readonly IBookingRepository _bookings;
+
+        // ✅ OPDATERET constructor (injekter seats + bookings)
+        public ShowService(
+            IShowRepository shows,
+            IMovieRepository movies,
+            ISeatRepository seats,
+            IBookingRepository bookings)
         {
             _shows = shows;
             _movies = movies;
+            _seats = seats;
+            _bookings = bookings;
         }
 
         public async Task<ShowDto> GetByIdAsync(int id)
@@ -71,7 +82,6 @@ namespace Cinema_ProjAss_Application.Services
             var existing = await _shows.GetByIdAsync(id);
             if (existing == null) throw new NotFoundException($"Show with id={id} not found.");
 
-            // valider movie findes
             var movie = await _movies.GetByIdAsync(dto.MovieId);
             if (movie == null) throw new ValidationException($"MovieId={dto.MovieId} does not exist.");
 
@@ -91,6 +101,35 @@ namespace Cinema_ProjAss_Application.Services
             if (existing == null) throw new NotFoundException($"Show with id={id} not found.");
 
             await _shows.DeleteAsync(id);
+        }
+
+        // ✅ NY: bruges af Angular seat-select til at få rigtige seats + booked status
+        public async Task<IEnumerable<SeatStatusDto>> GetSeatStatusForShowAsync(int showId)
+        {
+            if (showId <= 0) throw new ValidationException("showId must be > 0.");
+
+            var show = await _shows.GetByIdAsync(showId);
+            if (show == null) throw new NotFoundException($"Show with id={showId} not found.");
+
+            // 1) Alle seats i showets auditorium
+            var allSeats = await _seats.GetByAuditoriumAsync(show.AuditoriumId);
+
+            // 2) Hvilke seatIds er allerede booket for dette show (ignore cancelled)
+            var bookedSeatIds = await _bookings.GetBookedSeatIdsForShowAsync(showId);
+            var booked = bookedSeatIds.ToHashSet();
+
+            // 3) Kombinér til seat-status DTO
+            return allSeats
+                .OrderBy(s => s.Row)
+                .ThenBy(s => s.Number)
+                .Select(s => new SeatStatusDto
+                {
+                    SeatId = s.Id,
+                    Row = s.Row,
+                    Number = s.Number,
+                    IsBooked = booked.Contains(s.Id)
+                })
+                .ToList();
         }
 
         private static void Validate(CreateShowDto dto)

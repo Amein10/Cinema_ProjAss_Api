@@ -53,6 +53,7 @@ builder.Services.AddScoped<IShowRepository, ShowRepository>();
 builder.Services.AddScoped<IBookingRepository, BookingRepository>();
 builder.Services.AddScoped<IGenreRepository, GenreRepository>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<ISeatRepository, SeatRepository>();
 
 // ------------------------------------------------------------
 // Dependency Injection (Services / BLL)

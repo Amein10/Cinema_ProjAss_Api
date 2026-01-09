@@ -129,5 +129,34 @@ namespace Cinema_ProjAss_Infrastructure.Repositories
 
             await _context.SaveChangesAsync();
         }
+
+        public async Task<List<int>> GetBookedSeatIdsForShowAsync(int showId)
+        {
+            // Booked seats = alle bookingSeats for bookinger til dette show,
+            // som ikke er Cancelled.
+            return await _context.BookingSeats
+                .AsNoTracking()
+                .Where(bs =>
+                    bs.Booking.ShowId == showId &&
+                    bs.Booking.Status != BookingStatus.Cancelled
+                )
+                .Select(bs => bs.SeatId)
+                .Distinct()
+                .ToListAsync();
+        }
+
+        public async Task<bool> AnyBookedSeatsAsync(int showId, IEnumerable<int> seatIds)
+        {
+            var ids = seatIds.Distinct().ToList();
+
+            return await _context.BookingSeats
+                .AsNoTracking()
+                .AnyAsync(bs =>
+                    bs.Booking.ShowId == showId &&
+                    bs.Booking.Status != BookingStatus.Cancelled &&
+                    ids.Contains(bs.SeatId)
+                );
+        }
+
     }
 }

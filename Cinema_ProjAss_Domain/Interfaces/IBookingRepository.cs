@@ -20,5 +20,8 @@ namespace Cinema_ProjAss_Domain.Interfaces
         // CRUD mangler:
         Task UpdateSeatsAsync(int bookingId, List<int> seatIds);
         Task DeleteAsync(int bookingId);
+        Task<List<int>> GetBookedSeatIdsForShowAsync(int showId);
+        Task<bool> AnyBookedSeatsAsync(int showId, IEnumerable<int> seatIds);
+
     }
 }

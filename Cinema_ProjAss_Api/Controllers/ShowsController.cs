@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Cinema_ProjAss_Application.DTOs.Shows;
 using Cinema_ProjAss_Application.Exceptions;
 using Cinema_ProjAss_Application.Services;
+using Cinema_ProjAss_Application.DTOs.Seats;
 
 namespace Cinema_ProjAss_Api.Controllers
 {
@@ -90,6 +91,13 @@ namespace Cinema_ProjAss_Api.Controllers
             }
             catch (NotFoundException ex) { return NotFound(ex.Message); }
             catch (ValidationException ex) { return BadRequest(ex.Message); }
+        }
+
+        [HttpGet("{id:int}/seats")]
+        public async Task<ActionResult<IEnumerable<SeatStatusDto>>> GetSeatsForShow(int id)
+        {
+            var seats = await _showService.GetSeatStatusForShowAsync(id);
+            return Ok(seats);
         }
     }
 }
