@@ -3,10 +3,8 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Scalar.AspNetCore;
-
 using Cinema_ProjAss_Api.Middleware;
 using Cinema_ProjAss_Api.Security;
-
 using Cinema_ProjAss_Application.Services;
 using Cinema_ProjAss_Domain.Interfaces;
 using Cinema_ProjAss_Infrastructure.Data;
@@ -100,6 +98,12 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 builder.Services.AddAuthorization();
 
 var app = builder.Build();
+
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<CinemaDbContext>();
+    await DbSeeder.SeedAsync(db);
+}
 
 // ------------------------------------------------------------
 // Dev tools (OpenAPI + Scalar)

@@ -19,7 +19,11 @@ namespace Cinema_ProjAss_Domain.Entities
         /// Password hash (aldrig gem plain text password).
         /// </summary>
         public string PasswordHash { get; set; } = string.Empty;
+        public byte[] PasswordSalt { get; set; } = Array.Empty<byte>();
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+        // Brug string for simplicity: "Customer" / "Admin"
+        public string Role { get; set; } = "Customer";
     }
 }
