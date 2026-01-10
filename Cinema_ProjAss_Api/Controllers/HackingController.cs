@@ -1,6 +1,9 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using System.Data;
 
-// For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
+// Tving SqlClient-typerne til Microsoft.Data.SqlClient
+using SqlConnection = Microsoft.Data.SqlClient.SqlConnection;
+using SqlCommand = Microsoft.Data.SqlClient.SqlCommand;
 
 namespace Cinema_ProjAss_Api.Controllers
 {
@@ -8,45 +11,133 @@ namespace Cinema_ProjAss_Api.Controllers
     [ApiController]
     public class HackingController : ControllerBase
     {
-        // GET: api/<HackingController>
-        [HttpGet]
-        public IEnumerable<string> Get()
+        private readonly string _connStr;
+
+        public HackingController(IConfiguration config)
         {
-            return new string[] { "value1", "value2" };
+            _connStr = config.GetConnectionString("DefaultConnection")
+                      ?? throw new InvalidOperationException("Missing connection string: DefaultConnection");
         }
 
-        // GET api/<HackingController>/5
-        [HttpGet("{id}")]
-        public string Get(int id)
-        {
-            /*
-             * 0 - SqlInjection
-             *     Det skal være muligt at udføre SQL Injection angreb via denne metode.
-             * 1 - SQLConnection
-             * 2 - SQLCommand
-             * 3 - Open
-             * 4 - ExecuteNonQuery
-             */
+        // GET api/hacking/ping
+        [HttpGet("ping")]
+        public IActionResult Ping()
+            => Ok("Hacking demo endpoints are alive.");
 
-            return "value";
+        // GET api/hacking/dbinfo
+        // Debug: viser hvilken DB + server du reelt rammer (LocalDB kan snyde)
+        [HttpGet("dbinfo")]
+        public async Task<IActionResult> DbInfo()
+        {
+            await using var conn = new SqlConnection(_connStr);
+            await conn.OpenAsync();
+
+            return Ok(new
+            {
+                DataSource = conn.DataSource,
+                Database = conn.Database
+            });
         }
 
-        // POST api/<HackingController>
-        //[HttpPost]
-        //public void Post([FromBody] string value)
-        //{
-        //}
-
-        // PUT api/<HackingController>/5
-        //[HttpPut("{id}")]
-        //public void Put(int id, [FromBody] string value)
-        //{
-        //}
-
-        // DELETE api/<HackingController>/5
-        [HttpDelete("{id}")]
-        public void Delete(int id)
+        // POST api/hacking/insert?text=hello
+        // Sikker INSERT (parameteriseret)
+        [HttpPost("insert")]
+        public async Task<IActionResult> Insert([FromQuery] string text)
         {
+            if (string.IsNullOrWhiteSpace(text))
+                return BadRequest("text is required.");
+
+            const string sql = @"
+INSERT INTO dbo.HackDemoLog (TextValue, CreatedUtc)
+VALUES (@text, SYSUTCDATETIME());";
+
+            await using var conn = new SqlConnection(_connStr);
+            await conn.OpenAsync();
+
+            await using var cmd = new SqlCommand(sql, conn);
+            cmd.Parameters.Add("@text", SqlDbType.NVarChar, 4000).Value = text;
+
+            var rows = await cmd.ExecuteNonQueryAsync();
+            return Ok(new { inserted = rows, savedText = text });
         }
+
+        // DELETE api/hacking/delete?id=123
+        // Sikker DELETE (parameteriseret)
+        [HttpDelete("delete")]
+        public async Task<IActionResult> Delete([FromQuery] int id)
+        {
+            const string sql = @"DELETE FROM dbo.HackDemoLog WHERE Id = @id;";
+
+            await using var conn = new SqlConnection(_connStr);
+            await conn.OpenAsync();
+
+            await using var cmd = new SqlCommand(sql, conn);
+            cmd.Parameters.Add("@id", SqlDbType.Int).Value = id;
+
+            var rows = await cmd.ExecuteNonQueryAsync();
+            return Ok(new { deleted = rows, id });
+        }
+
+        // GET api/hacking/latest?take=10
+        // Hjælper dig med at “vise” at insert virkede, uden at åbne DB manuelt
+        [HttpGet("latest")]
+        public async Task<IActionResult> Latest([FromQuery] int take = 10)
+        {
+            if (take < 1 || take > 100) take = 10;
+
+            const string sql = @"
+SELECT TOP (@take) Id, TextValue, CreatedUtc
+FROM dbo.HackDemoLog
+ORDER BY Id DESC;";
+
+            await using var conn = new SqlConnection(_connStr);
+            await conn.OpenAsync();
+
+            await using var cmd = new SqlCommand(sql, conn);
+            cmd.Parameters.Add("@take", SqlDbType.Int).Value = take;
+
+            var result = new List<object>();
+            await using var reader = await cmd.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                result.Add(new
+                {
+                    Id = reader.GetInt32(0),
+                    TextValue = reader.GetString(1),
+                    CreatedUtc = reader.GetDateTime(2)
+                });
+            }
+
+            return Ok(result);
+        }
+        [HttpPost("createtable")]
+        public async Task<IActionResult> CreateTable()
+        {
+            const string sql = @"
+IF NOT EXISTS (
+    SELECT 1
+    FROM sys.tables t
+    JOIN sys.schemas s ON t.schema_id = s.schema_id
+    WHERE s.name = 'dbo' AND t.name = 'HackDemoLog'
+)
+BEGIN
+    CREATE TABLE dbo.HackDemoLog (
+        Id INT IDENTITY(1,1) PRIMARY KEY,
+        TextValue NVARCHAR(4000) NOT NULL,
+        CreatedUtc DATETIME2 NOT NULL
+    );
+END
+";
+
+            await using var conn = new SqlConnection(_connStr);
+            await conn.OpenAsync();
+
+            await using var cmd = new SqlCommand(sql, conn);
+            await cmd.ExecuteNonQueryAsync();
+
+            return Ok("dbo.HackDemoLog created (if it did not exist).");
+        }
+
+
     }
 }
