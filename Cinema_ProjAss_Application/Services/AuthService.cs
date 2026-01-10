@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Cinema_ProjAss_Application.DTOs.Auth;
+﻿using Cinema_ProjAss_Application.DTOs.Auth;
 using Cinema_ProjAss_Application.Exceptions;
 using Cinema_ProjAss_Domain.Entities;
 using Cinema_ProjAss_Domain.Interfaces;
@@ -11,15 +6,10 @@ using Microsoft.AspNetCore.Identity;
 
 namespace Cinema_ProjAss_Application.Services
 {
-    /// <summary>
-    /// Register/Login service med password hashing og JWT token.
-    /// </summary>
     public class AuthService : IAuthService
     {
         private readonly IUserRepository _users;
         private readonly ITokenService _tokenService;
-
-        // PasswordHasher er en sikker standard-hasher (PBKDF2).
         private readonly PasswordHasher<AppUser> _hasher = new();
 
         public AuthService(IUserRepository users, ITokenService tokenService)
@@ -40,7 +30,8 @@ namespace Cinema_ProjAss_Application.Services
 
             var user = new AppUser
             {
-                Username = username
+                Username = username,
+                Role = "Customer" // ✅ Register = Kunde
             };
 
             user.PasswordHash = _hasher.HashPassword(user, dto.Password);
@@ -51,6 +42,7 @@ namespace Cinema_ProjAss_Application.Services
             {
                 UserId = created.Id,
                 Username = created.Username,
+                Role = string.IsNullOrWhiteSpace(created.Role) ? "Customer" : created.Role,
                 Token = _tokenService.CreateToken(created)
             };
         }
@@ -73,6 +65,7 @@ namespace Cinema_ProjAss_Application.Services
             {
                 UserId = user.Id,
                 Username = user.Username,
+                Role = string.IsNullOrWhiteSpace(user.Role) ? "Customer" : user.Role, // ✅ Send rolle!
                 Token = _tokenService.CreateToken(user)
             };
         }
